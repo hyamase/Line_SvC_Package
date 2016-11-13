@@ -1,0 +1,78 @@
+public with sharing class LineBotClient {
+
+    private static final String LINE_BOT_EVENT_URI_REPLY = 'https://api.line.me/v2/bot/message/reply';
+    private static final String LINE_BOT_EVENT_URI_PUSH = 'https://api.line.me/v2/bot/message/push';
+    
+    private String accessToken;
+    
+    public LineBotClient(String accessToken) {
+        this.accessToken = accessToken;
+    }
+
+    public String sendReplyMessage(String jsonBody) {
+        HttpRequest req = new HttpRequest();
+        req.setHeader('Content-type', 'application/json; charset=UTF-8');
+        req.setHeader('Authorization', 'Bearer ' + this.accessToken);
+        req.setHeader('Content-Length', String.valueOf(jsonBody.length()));
+        req.setEndpoint(LINE_BOT_EVENT_URI_REPLY);
+        req.setMethod('POST');
+        req.setBody(jsonBody);
+        Http http = new Http();
+        HTTPResponse res = http.send(req);
+        return res.getBody();        
+    }
+    
+    public String sendPushMessage(String jsonBody) {
+        HttpRequest req = new HttpRequest();
+        req.setHeader('Content-type', 'application/json; charset=UTF-8');
+        req.setHeader('Authorization', 'Bearer ' + this.accessToken);
+        req.setHeader('Content-Length', String.valueOf(jsonBody.length()));
+        req.setEndpoint(LINE_BOT_EVENT_URI_PUSH);
+        req.setMethod('POST');
+        req.setBody(jsonBody);
+        Http http = new Http();
+        HTTPResponse res = http.send(req);
+        return res.getBody();
+    }
+
+    public String sendReplyTextMessage(String replyToken, String message) {
+        String jsonBody = '{\"replyToken\":\"'+replyToken+'\",\"messages\":[{\"type\":\"text\",\"text\":\"'+message+'\"}]}';
+        return this.sendReplyMessage(jsonBody);
+    }
+    
+    public String sendReplyImageMessage(String replyToken, String originalContentUrl, String previewImageUrl) {
+        String jsonBody = '{\"replyToken\":\"'+replyToken+'\",\"messages\":[{\"type\":\"image\",\"originalContentUrl\":\"'+originalContentUrl+'\",\"previewImageUrl\":\"'+previewImageUrl+'\"}]}';
+        return this.sendReplyMessage(jsonBody);
+    }
+
+    public String sendReplyTextTextMessage(String replyToken, String message, String message2) {
+        String jsonBody = '{\"replyToken\":\"'+replyToken+'\",\"messages\":[{\"type\":\"text\",\"text\":\"'+message+'\"},{\"type\":\"text\",\"text\":\"'+message2+'\"}]}';
+        return this.sendReplyMessage(jsonBody);
+    }
+    
+    public String sendReplyTextImageMessage(String replyToken, String message, String originalContentUrl, String previewImageUrl) {
+        String jsonBody = '{\"replyToken\":\"'+replyToken+'\",\"messages\":[{\"type\":\"text\",\"text\":\"'+message+'\"},{\"type\":\"image\",\"originalContentUrl\":\"'+originalContentUrl+'\",\"previewImageUrl\":\"'+previewImageUrl+'\"}]}';
+        return this.sendReplyMessage(jsonBody);
+    }
+    
+    public String sendPushTextMessage(String userId, String message) {
+        String jsonBody = '{\"to\":\"'+userId+'\",\"messages\":[{\"type\":\"text\",\"text\":\"'+message+'\"}]}';
+        return this.sendPushMessage(jsonBody);
+    }
+    
+    public String sendPushImageMessage(String userId, String originalContentUrl, String previewImageUrl) {
+        String jsonBody = '{\"to\":\"'+userId+'\",\"messages\":[{\"type\":\"image\",\"originalContentUrl\":\"'+originalContentUrl+'\",\"previewImageUrl\":\"'+previewImageUrl+'\"}]}';
+        return this.sendPushMessage(jsonBody);
+    }
+    
+    public String sendPushTextTextMessage(String userId, String message, String message2) {
+        String jsonBody = '{\"to\":\"'+userId+'\",\"messages\":[{\"type\":\"text\",\"text\":\"'+message+'\"},{\"type\":\"text\",\"text\":\"'+message2+'\"}]}';
+        return this.sendPushMessage(jsonBody);
+    }
+    
+    public String sendPushTextImageMessage(String userId, String message, String originalContentUrl, String previewImageUrl) {
+        String jsonBody = '{\"to\":\"'+userId+'\",\"messages\":[{\"type\":\"text\",\"text\":\"'+message+'\"},{\"type\":\"image\",\"originalContentUrl\":\"'+originalContentUrl+'\",\"previewImageUrl\":\"'+previewImageUrl+'\"}]}';
+        return this.sendPushMessage(jsonBody);
+    }
+
+}
