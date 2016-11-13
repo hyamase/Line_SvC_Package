@@ -1,0 +1,138 @@
+@RestResource(urlMapping='/line_callback')
+global with sharing class LineBotCallback {
+    private static String channelSecret;
+    private static String accessToken;
+    private static String community_url;
+    
+    @httpPost
+    global static Map<String, String> doPost() {
+
+        RestRequest req = RestContext.request;
+        RestResponse res = RestContext.response;
+        
+        //Channel Secret & Access Token & Community URLの取得
+        LINE_Setting__c setting = getLINESetting();
+        channelSecret = setting.channelSecret__c;
+        accessToken = setting.accessToken__c;
+        community_url = setting.community_url__c;
+         
+        Map<String, Object> callbackParams = (Map<String, Object>)JSON.deserializeUntyped(req.requestBody.ToString());
+        List<Object> resultParams = (List<Object>)callbackParams.get('events');
+        String calculatedSignature = 
+            EncodingUtil.base64Encode(Crypto.generateMac('HmacSha256', req.requestBody, Blob.valueOf(channelSecret)));         
+        String signature = req.headers.get('X-Line-Signature');
+
+        //**************以下のコメントコードを有効化**************
+        if (calculatedSignature != signature) {
+            res.statusCode = 401;
+            return new Map<String, String> {
+                'result' => 'failure',
+                'description' => 'Error: Calculated signature is not different\n\ncalculated signature:'
+                                     + calculatedSignature + '\nrequest signature:' + signature
+            };
+        }
+        //************************ここまで****************************
+
+         
+        //定形回答テンプレート
+        List<String> questions = new List<String>{
+            'ID',
+            'ありがとう',
+            'こんにちわ',
+            'わかんない'
+        };
+        List<String> answers = new List<String>{
+            '',
+            'こちらこそ。いつでも話しかけてね！またね',
+            'こんにちわ',
+            '何がわからないの？キーワードだけでも教えて'
+        };  
+
+        LineBotClient client = new LineBotClient(accessToken);        
+        for (Object obj : resultParams) {
+            Map<String, Object> params = (Map<String, Object>)obj;
+            String replyToken =  (String)params.get('replyToken');
+            Map<String, Object> contentParams = (Map<String, Object>)params.get('message');
+
+            Map<String, Object> source = (Map<String, Object>)params.get('source');
+            String userId = (String)source.get('userId');            
+            
+            String type = (String)contentParams.get('type');
+            if (type == 'text')
+            {
+                String message = (String)contentParams.get('text') ;
+                String debugBody = '';
+                //定形回答
+                if (message == questions[0]) {
+                    debugBody = client.sendReplyTextMessage(replyToken, userId);
+                } else if (message.contains(questions[1])) {
+                    debugBody = client.sendReplyTextMessage(replyToken,  answers[1]);
+                } else if (message.contains(questions[2])) {
+                    debugBody = client.sendReplyTextMessage(replyToken, answers[2]);
+                } else if (message.contains(questions[3])) {
+                    debugBody = client.sendReplyTextMessage(replyToken, answers[3]);
+                } else {
+                //ナレッジ検索＆回答
+                    ArticlePagedResult a = searchAll(message);
+                    if (a.articles.size()  > 0){
+                        for (Integer i = 0; i < a.pageSize; i++)  {
+                            if (a.articles[i].summary.contains('http')){
+                                 debugBody = client.sendReplyTextImageMessage(replyToken, '「'+a.articles[i].title+'」という情報を見つけたよ！次のリンクを確認してみて', a.articles[i].summary, a.articles[i].summary);
+                            } else {
+                                debugBody = client.sendReplyTextTextMessage(replyToken, '「'+a.articles[i].title+'」という情報を見つけたよ！次のリンクを確認してみて' ,community_url + a.articles[i].UrlName);
+                            }
+                        }
+                        postSFDCObject(message, userId, false);
+                    } else {
+                        debugBody = client.sendReplyTextMessage(replyToken, 'ごめん、少し調べるからちょっと待ってて');
+                        postSFDCObject(message, userId, true);
+                    }
+                }
+                System.debug(debugBody);
+        	}
+        }
+
+        return new Map<String, String>{
+            'result' => 'success'
+        };
+    }
+
+    //ナレッジ検索
+    public static ArticlePagedResult searchAll(String searchKey) {
+        List<List<sObject>> searchList = [FIND :searchKey RETURNING KnowledgeArticleVersion(Id, title, summary, UrlName, articleType WHERE PublishStatus='online' AND language ='ja')];
+        List<KnowledgeArticleVersion> knowledgeList = ((List<KnowledgeArticleVersion>)searchList[0]);
+		ArticlePagedResult a =  new ArticlePagedResult();
+        a.articles = knowledgeList;
+        a.pageSize = 1;
+        return a;
+    }
+
+    //SFDC取引先責任者へメッセージの書き込み
+    public static void postSFDCObject(String message, String mid, Boolean flag){
+        try{
+            String searchKey = mid.remove('{').remove('}');
+
+            list<LINE_Message__c> msgs = [select Name, LINE_Priority_Flag__c from LINE_Message__c  Where LINE_MID__c  = :searchKey order by CreatedDate asc LIMIT 1];
+    	    LINE_Message__c msg = msgs[0];
+        	msg.Name = message;
+            msg.LINE_Priority_Flag__c = flag;
+        	update msg;
+        }catch(Exception e){
+        	System.debug('Trigger exception: '+e);  
+    	}
+    }
+    
+    //Channel Secret & Access Token & Community URLの取得
+    public static LINE_Setting__c getLINESetting(){
+        LINE_Setting__c setting;
+        try{
+            list<LINE_Setting__c> settings = [select channelSecret__c, accessToken__c, community_url__c from LINE_Setting__c LIMIT 1];
+    	    setting = settings[0];
+
+        }catch(Exception e){
+        	System.debug('Trigger exception: '+e);  
+    	}
+        return setting;
+    }
+
+}
