@@ -1,0 +1,27 @@
+public class LineBotCallout {
+
+    private static String accessToken;
+    
+    @future (callout=true)
+  	public static void doCalloutFromFuture(String description, String mid) {
+
+        LINE_Setting__c setting = getLINESetting();
+        accessToken = setting.accessToken__c;
+
+    	LineBotClient client = new LineBotClient(accessToken);
+    	client.sendPushTextMessage(mid, description);
+	}
+        
+    public static LINE_Setting__c getLINESetting(){
+        LINE_Setting__c setting;
+        try{
+            list<LINE_Setting__c> settings = [select channelSecret__c, accessToken__c, community_url__c from LINE_Setting__c LIMIT 1];
+    	    setting = settings[0];
+
+        }catch(Exception e){
+        	System.debug('Trigger exception: '+e);  
+    	}
+        return setting;
+    }
+
+}

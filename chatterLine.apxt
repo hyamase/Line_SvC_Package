@@ -1,0 +1,17 @@
+trigger chatterLine on FeedItem (after insert){
+
+    try{
+    	for(FeedItem item : Trigger.New)
+    	{
+        	String body = item.Body;
+        	String parentId = item.ParentId;
+        	Contact c = [Select Name, Id, Phone, LINE_MID__c from Contact Where Id = :parentId];
+            if ( c != null){
+            	LineBotCallout.doCalloutFromFuture(body.stripHtmlTags() ,c.LINE_MID__c);
+            }
+    	}
+    }catch(Exception e){
+        System.debug('Trigger exception: '+e);  
+    }
+
+}

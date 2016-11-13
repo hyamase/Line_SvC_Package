@@ -1,0 +1,15 @@
+trigger callLine on Task (after insert, after update) {
+
+     try{
+         for (Task t: Trigger.new) {
+            if (t.Subject  == 'Line_Message') {
+                Contact c = [Select Name, Id, Phone, LINE_MID__c from Contact Where Id = :t.WhoId];
+                System.debug('contact='+ c);
+                LineBotCallout_Promo_Demo.doCalloutFromFuture(t.Description,c.LINE_MID__c);
+            }
+         }
+    }catch(Exception e){
+        System.debug('Trigger exception: '+e);  
+    }
+
+}

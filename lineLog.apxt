@@ -1,0 +1,17 @@
+trigger lineLog on LINE_Message__c (after update) {
+
+    try{
+         for (LINE_Message__c msg: Trigger.new) {
+             String searchKey = msg.LINE_MID__c;
+             list<LINE_Message__c> prevMsgs = [select Name, LINE_Priority_Flag__c, Contact_Relation__c from LINE_Message__c  Where LINE_MID__c  = :searchKey order by LastModifiedDate desc LIMIT 1];
+             LINE_Message__c log = new LINE_Message__c();
+             log.Name = prevMsgs[0].Name;
+             log.Contact_Relation__c = prevMsgs[0].Contact_Relation__c;
+             log.LINE_Priority_Flag__c = prevMsgs[0].LINE_Priority_Flag__c;
+             insert log;
+         }
+    }catch(Exception e){
+        System.debug('Trigger exception: '+e);  
+    }
+
+}
